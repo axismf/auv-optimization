@@ -142,15 +142,18 @@ def construir_grafo(campo: CampoCorrientes, params: ParametrosModelo) -> Grafo:
                 break
 
         if tiene_ciclos_negativos:
-            # Si hay ciclos negativos, ajustar pesos negativos a cero
-            # Esto previene la propagación infinita de energía
-            for u, v, w in grafo.aristas():
-                if w < 0:
-                    # Buscar y actualizar el peso en la adyacencia
-                    for idx, (dest, peso) in enumerate(grafo._adyacencia.get(u, [])):
-                        if dest == v and peso < 0:
-                            grafo._adyacencia[u][idx] = (dest, 0.0)
-                            break
+            # Ya NO se ponen en cero las aristas negativas: son la base del
+            # modelo (regeneración por corrientes) y no deben eliminarse.
+            # Solo se advierte, para que quien use el grafo sepa que
+            # Bellman-Ford desde este nodo detectó un ciclo negativo
+            # alcanzable y que, por tanto, las distancias mínimas hacia
+            # los nodos afectados podrían no estar bien definidas.
+            print(
+                "⚠ Advertencia: se detectó un ciclo negativo alcanzable desde "
+                f"{primer_nodo}. Las aristas negativas se conservan (son la "
+                "base del modelo), pero revisa la ruta resultante si pasa "
+                "por esa zona: las distancias mínimas podrían no converger."
+            )
 
     return grafo
 
@@ -224,15 +227,17 @@ def costo_arista(
         vc3 = vc_mag ** 3
         e_regen = params.k_r * params.eta * vc3 * tiempo
 
-        # Límite dinámico: regeneración crece con la intensidad de la corriente
-        # - Corriente moderada (0.2-0.5 m/s): tope al 50% del arrastre
-        # - Corriente fuerte (>0.5 m/s): puede regenerar más del arrastre (costo negativo)
+        # Límite dinámico: el tope de regeneración escala con qué tan alineada
+        # y fuerte es la corriente respecto al arrastre que se evita.
+        # Antes: corrientes moderadas (<=0.5 m/s) tenían un tope fijo del 50%
+        # del arrastre, lo que hacía IMPOSIBLE un costo negativo con las
+        # corrientes reales de la zona (0.1-0.3 m/s). Ahora el tope depende
+        # de qué tanta energía relativa aporta la corriente: cuanto más
+        # alineada y fuerte, más cerca (o por encima) del 100% del arrastre.
         # Fundamento: Lundström et al. (2010) + observación empírica de AUVs
-        if vc_mag <= 0.5:
-            max_regen_por_arista = e_drag * 0.5
-        else:
-            # Corriente fuerte: permitir regeneración completa + extra
-            max_regen_por_arista = e_drag * 1.5
+        fraccion_alineada = vc_paralela / vc_mag if vc_mag > 0 else 0.0
+        # fraccion_alineada en (0, 1]; escala el tope entre 60% y 130% del arrastre
+        max_regen_por_arista = e_drag * (0.6 + 0.7 * fraccion_alineada)
 
         # Energía neta: arrastre - regeneración + gravitacional
         # Fundamento: Yasser (2020) - "Energy Consumption Model of AUVs"
