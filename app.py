@@ -970,9 +970,9 @@ def _render_fase_actual() -> None:
 
 def _render_contenido_fase1() -> None:
     if st.session_state.nc_path:
-        _render_status_bar("DATASET LOADED  ·  READY TO PROCEED")
+        _render_status_bar("DATASET CARGADO  ·  LISTO PARA CONTINUAR")
     else:
-        _render_status_bar("STANDBY  ·  AWAITING DATASET SELECTION")
+        _render_status_bar("EN ESPERA  ·  SELECCIONE UN DATASET")
 
     st.markdown("`> SELECT DATASET`")
 
@@ -1017,7 +1017,7 @@ def _render_contenido_fase1() -> None:
 
     with cols[-1]:
         with st.container(border=True):
-            st.markdown("**Upload custom**")
+            st.markdown("**Cargar archivo**")
             uploaded = st.file_uploader(
                 "Upload .nc file",
                 type=["nc"],
@@ -1165,7 +1165,7 @@ def _render_dataset_cargado() -> None:
 # ── Fase 2 — Análisis del campo de corrientes ─────────────────────────────────
 
 def _render_contenido_fase2() -> None:
-    _render_status_bar("PROCESSING  ·  DIVERGENCE ANALYSIS ACTIVE")
+    _render_status_bar("PROCESANDO  ·  ANÁLISIS DE DIVERGENCIA ACTIVO")
 
     campo   = st.session_state.campo
     nc_path = st.session_state.nc_path
@@ -1316,7 +1316,7 @@ def _render_galeria_bases(campo: CampoCorrientes) -> None:
                     st.session_state.base_key = len(st.session_state.bases_personalizadas) - 1
                     st.rerun()
 
-            st.markdown("_o cargá una manual:_")
+            st.markdown("_o ingrese una manualmente:_")
             nombre_inp = st.text_input(
                 "Nombre de la base",
                 placeholder="Ej: Puerto Salaverry",
@@ -1346,7 +1346,7 @@ def _render_galeria_bases(campo: CampoCorrientes) -> None:
 
 
 def _render_contenido_fase3() -> None:
-    _render_status_bar("CONVERGENCE ZONE PLANNING  ·  PARAMETERS ACTIVE")
+    _render_status_bar("PLANIFICACIÓN DE ZONAS  ·  PARÁMETROS ACTIVOS")
 
     campo = st.session_state.campo
     div   = st.session_state.div
@@ -1830,7 +1830,7 @@ def _render_gestor_drones() -> None:
 
 
 def _render_contenido_fase4() -> None:
-    _render_status_bar("DRONE DEPLOYMENT  ·  CONFIGURATION ACTIVE")
+    _render_status_bar("CONFIGURACIÓN DE DRONES  ·  ACTIVO")
 
     campo     = st.session_state.campo
     nc_path   = st.session_state.nc_path
@@ -1931,7 +1931,7 @@ def _render_contenido_fase4() -> None:
                 st.plotly_chart(fig_3d_grafo, use_container_width=True, height=380)
                 st.caption("🟩 Costo negativo (regeneración)  ·  🟥 Costo positivo (consumo)")
             except ImportError:
-                st.info("Para ver el grafo en 3D, instalá plotly: `pip install plotly`")
+                st.info("Para ver el grafo en 3D, instale plotly: `pip install plotly`")
 
     st.markdown("---")
 
@@ -1954,7 +1954,7 @@ def _render_contenido_fase4() -> None:
 # ── Fase 5 — Ruta óptima (fusionada con Fase 4) ─────────────────────────────
 
 def _render_contenido_fase5() -> None:
-    _render_status_bar("ATSP SOLVER  ·  BFB ROUTE VALIDATION  ·  COMPLETE")
+    _render_status_bar("SOLVER ATSP  ·  VALIDACIÓN DE RUTA  ·  COMPLETADO")
 
     campo     = st.session_state.campo
     todos     = st.session_state.todos
@@ -2002,7 +2002,7 @@ def _render_contenido_fase5() -> None:
 
     with isla_beneficio:
         with st.container(border=True):
-            st.markdown("**[ BENEFICIO vs NAIVE ]**")
+            st.markdown("**[ BENEFICIO vs OTROS ALGORITMOS ]**")
             if hay_ahorro:
                 b1, b2 = st.columns(2)
                 b1.metric("Ahorro", f"{ahorro_j/3600:.1f} Wh")
@@ -2071,7 +2071,7 @@ def _render_contenido_fase5() -> None:
 # ── Fase 6 — Resultados y exportación ────────────────────────────────────────
 
 def _render_contenido_fase6() -> None:
-    _render_status_bar("MISSION READY  ·  ALL SYSTEMS NOMINAL")
+    _render_status_bar("MISIÓN LISTA  ·  TODOS LOS SISTEMAS OPERATIVOS")
 
     campo     = st.session_state.campo
     ruta      = st.session_state.ruta
@@ -2170,7 +2170,7 @@ def _render_contenido_fase6() -> None:
                 st.plotly_chart(fig_3d, use_container_width=True, height=420)
                 st.caption("🟩 Regeneración  ·  🟥 Consumo  ·  ── Ruta AUV")
             except ImportError:
-                st.info("Para ver la visualización 3D, instalá plotly: `pip install plotly`")
+                st.info("Para ver la visualización 3D, instale plotly: `pip install plotly`")
 
     with col_mapa6:
         with st.container(border=True):
