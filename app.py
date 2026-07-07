@@ -42,6 +42,8 @@ from src.visualizacion import (
 # ── Constantes ────────────────────────────────────────────────────────────────
 _LAT_CALLAO    = -12.05
 _LON_CALLAO    = -77.15
+_LAT_CHANCAY   = -11.5903   # 11°35′25″S
+_LON_CHANCAY   = -77.2761   # 77°16′34″O
 _DATA_DIR      = pathlib.Path(__file__).parent / "data"
 
 _FASES_NOMBRES = ["Datos", "Corrientes", "Zonas", "Grafo", "ATSP", "Misión"]
@@ -134,6 +136,18 @@ _DRONE_PRESETS: list[dict] = [
         "desc":    "AUV mediano. Ø33cm, 240kg, batería 3kWh, autonomía 24h.",
     },
     {
+        "nombre":  "REMUS 620",
+        "s":       1.0,
+        "eta":     0.30,
+        "k_p":     0.4,
+        "k_r":     18.0,
+        "e_max":   10_800_000, # 3 kWh
+        "pct_ini": 100,
+        "m":       240.0,      # kg
+        "C_d":     1.09,       # efectivo
+        "desc":    "AUV mediano. Ø33cm, 240kg, batería 3kWh, autonomía 24h.",
+    },
+    {
         "nombre":  "Bluefin-9",
         "s":       1.0,
         "eta":     0.30,
@@ -156,6 +170,18 @@ _DRONE_PRESETS: list[dict] = [
         "m":       100.0,
         "C_d":     1.55,       # efectivo
         "desc":    "Configuración genérica para prototipos.",
+    },
+    {
+        "nombre":  "Drone Prueba",
+        "s":       0.25,       # m/s — casi igual a la corriente → vr pequeño → arrastre mínimo
+        "eta":     0.85,       # alta eficiencia para maximizar regeneración
+        "k_p":     2.0,        # arrastre bajo → e_drag pequeño
+        "k_r":     5.0,        # regeneración alta → e_regen > e_drag → pesos negativos
+        "e_max":   500_000,    # 0.5 MJ
+        "pct_ini": 100,
+        "m":       5.0,
+        "C_d":     0.80,
+        "desc":    "Preset de prueba para forzar aristas con peso negativo (regeneración > arrastre).",
     },
 ]
 
@@ -696,7 +722,7 @@ def _init_state() -> None:
         "base_nodo":  None,
         "base_idx":   None,
         "firma_zonas_f3": None,
-        # Fase 4 — drones (preset por defecto: REMUS 100)
+        # Fase 4 — drones (por defecto: REMUS 100 + REMUS 620)
         "drones": [
             {
                 "nombre":  _DRONE_PRESETS[0]["nombre"],
@@ -706,7 +732,16 @@ def _init_state() -> None:
                 "k_r":     _DRONE_PRESETS[0]["k_r"],
                 "e_max":   _DRONE_PRESETS[0]["e_max"],
                 "pct_ini": _DRONE_PRESETS[0]["pct_ini"],
-            }
+            },
+            {
+                "nombre":  _DRONE_PRESETS[2]["nombre"],
+                "s":       _DRONE_PRESETS[2]["s"],
+                "eta":     _DRONE_PRESETS[2]["eta"],
+                "k_p":     _DRONE_PRESETS[2]["k_p"],
+                "k_r":     _DRONE_PRESETS[2]["k_r"],
+                "e_max":   _DRONE_PRESETS[2]["e_max"],
+                "pct_ini": _DRONE_PRESETS[2]["pct_ini"],
+            },
         ],
         "drone_key":       0,
         "abrir_drone_idx": None,
@@ -990,16 +1025,17 @@ def _render_contenido_fase1() -> None:
                 label_visibility="collapsed",
             )
             if uploaded is not None:
-                tmp = tempfile.NamedTemporaryFile(
-                    suffix=".nc", delete=False, prefix="auv_upload_"
-                )
-                tmp.write(uploaded.read())
-                tmp.flush()
-                tmp.close()
-                if st.session_state.nc_path != tmp.name:
-                    st.session_state.nc_path      = tmp.name
-                    st.session_state.campo        = None
-                    st.session_state.capa_preview = 0
+                if st.session_state.get("nc_uploaded_name") != uploaded.name:
+                    tmp = tempfile.NamedTemporaryFile(
+                        suffix=".nc", delete=False, prefix="auv_upload_"
+                    )
+                    tmp.write(uploaded.read())
+                    tmp.flush()
+                    tmp.close()
+                    st.session_state.nc_uploaded_name = uploaded.name
+                    st.session_state.nc_path          = tmp.name
+                    st.session_state.campo            = None
+                    st.session_state.capa_preview     = 0
                     st.rerun()
             st.caption("CMEMS GLOBAL_ANALYSISFORECAST")
 
@@ -1217,10 +1253,16 @@ def _render_galeria_bases(campo: CampoCorrientes) -> None:
     capa         = 0
     nav          = campo.navegable[capa]
 
-    opciones = [{
-        "key": "callao", "nombre": "Puerto del Callao",
-        "lat": _LAT_CALLAO, "lon": _LON_CALLAO, "default": True,
-    }]
+    opciones = [
+        {
+            "key": "callao",  "nombre": "Puerto del Callao",
+            "lat": _LAT_CALLAO,  "lon": _LON_CALLAO,  "default": True,
+        },
+        {
+            "key": "chancay", "nombre": "Puerto de Chancay",
+            "lat": _LAT_CHANCAY, "lon": _LON_CHANCAY, "default": True,
+        },
+    ]
     for idx, info in enumerate(bases_custom):
         opciones.append({
             "key": idx, "nombre": info["nombre"],
@@ -1321,6 +1363,9 @@ def _render_contenido_fase3() -> None:
     if base_key == "callao":
         b_nombre = "Puerto del Callao"
         b_lat, b_lon = _LAT_CALLAO, _LON_CALLAO
+    elif base_key == "chancay":
+        b_nombre = "Puerto de Chancay"
+        b_lat, b_lon = _LAT_CHANCAY, _LON_CHANCAY
     else:
         info = st.session_state.bases_personalizadas[base_key]
         b_nombre = info["nombre"]
