@@ -137,7 +137,7 @@ _DRONE_PRESETS: list[dict] = [
     },
     {
         "nombre":  "REMUS 620",
-        "s":       1.0,
+        "s":       0.5,
         "eta":     0.30,
         "k_p":     0.4,
         "k_r":     18.0,
