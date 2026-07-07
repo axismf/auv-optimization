@@ -142,12 +142,12 @@ def construir_grafo(campo: CampoCorrientes, params: ParametrosModelo) -> Grafo:
                 break
 
         if tiene_ciclos_negativos:
-            for u, v, w in grafo.aristas():
-                if w < 0:
-                    for idx, (dest, peso) in enumerate(grafo._adyacencia.get(u, [])):
-                        if dest == v and peso < 0:
-                            grafo._adyacencia[u][idx] = (dest, 0.0)
-                            break
+            print(
+                "⚠ Advertencia: se detectó un ciclo negativo alcanzable desde "
+                f"{primer_nodo}. Las aristas negativas se conservan (son la "
+                "base del modelo), pero revisa la ruta resultante si pasa "
+                "por esa zona: las distancias mínimas podrían no converger."
+            )
 
     return grafo
 
