@@ -982,6 +982,25 @@ def _render_contenido_fase1() -> None:
 
     with cols[-1]:
         with st.container(border=True):
+            st.markdown("**Upload custom**")
+            uploaded = st.file_uploader(
+                "Upload .nc file",
+                type=["nc"],
+                key="nc_uploader",
+                label_visibility="collapsed",
+            )
+            if uploaded is not None:
+                tmp = tempfile.NamedTemporaryFile(
+                    suffix=".nc", delete=False, prefix="auv_upload_"
+                )
+                tmp.write(uploaded.read())
+                tmp.flush()
+                tmp.close()
+                if st.session_state.nc_path != tmp.name:
+                    st.session_state.nc_path      = tmp.name
+                    st.session_state.campo        = None
+                    st.session_state.capa_preview = 0
+                    st.rerun()
             st.caption("CMEMS GLOBAL_ANALYSISFORECAST")
 
     if st.session_state.nc_path:
