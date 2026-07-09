@@ -1,168 +1,172 @@
 <div align="center">
 
-# 🌊 AUV Route Planner
+# 🌊 Planificador de Rutas AUV
 
-**Minimum-energy path planning for Autonomous Underwater Vehicles
-using ocean current data, Bellman-Ford, and asymmetric TSP.**
+**Planificación de rutas de mínima energía para Vehículos Submarinos Autónomos
+usando datos de corrientes marinas, Bellman-Ford y TSP asimétrico.**
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.45+-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Tests](https://img.shields.io/badge/tests-42%20passing-brightgreen?style=flat-square)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[**Live Demo**](https://auv-rutas.streamlit.app/) · [**Report**](informe/main.pdf)
+[**Demo en vivo**](https://auv-rutas.streamlit.app/) · [**Informe técnico**](informe/main.pdf)
+
+English · [**English README**](README_EN.md)
 
 </div>
 
 ---
 
-## What is this?
+## ¿Qué es esto?
 
-An AUV (Autonomous Underwater Vehicle) plans a mission along the Peruvian
-coast to monitor pollution convergence zones. The system must find the
-**minimum-energy route** — because every joule counts when you're underwater
-with a finite battery.
+Un AUV (Vehículo Submarino Autónomo) planifica una misión a lo largo de la
+costa peruana para monitorear zonas de convergencia de contaminantes. El
+sistema debe encontrar la **ruta de mínima energía** — porque cada joule
+cuenta cuando estás bajo el agua con una batería finita.
 
-The key insight: **ocean currents can both help and hurt**. Moving with a
-current regenerates battery (negative edge weight). Moving against it drains
-faster. This makes the problem fundamentally different from standard shortest-path.
+La clave: **las corrientes marinas pueden ayudar y perjudicar**. Moverse a
+favor de la corriente recarga batería (peso negativo). Moverse en contra la
+gasta más rápido. Esto hace que el problema sea fundamentalmente diferente
+al de caminos mínimos estándar.
 
 ```
  ┌─────────────────────────────────────────────────────────────┐
- │  Copernicus Marine    →    Directed Graph    →    Optimal   │
- │  NetCDF ocean data        (Bellman-Ford)         Route      │
- │  (uo, vo currents)        with negative          (ATSP)     │
- │                             weights                         │
+ │  Copernicus Marine    →    Grafo Dirigido    →    Ruta     │
+ │  Datos NetCDF oceánicos    (Bellman-Ford)       Óptima     │
+ │  (uo, vo corrientes)       con pesos             (ATSP)    │
+ │                             negativos                       │
  └─────────────────────────────────────────────────────────────┘
 ```
 
-| Route 2D | Mission Zones | Cost Graph |
+| Ruta 2D | Zonas de Misión | Grafo de Costos |
 |:---:|:---:|:---:|
-| ![Route 2D](informe/media/ruta_2d.png) | ![Mission Zones](informe/media/zonas_mision.png) | ![Cost Graph](informe/media/grafo_costos.png) |
+| ![Ruta 2D](informe/media/ruta_2d.png) | ![Zonas](informe/media/zonas_mision.png) | ![Grafo](informe/media/grafo_costos.png) |
 
-| Ocean Currents | Battery Profile |
+| Corrientes | Perfil de Batería |
 |:---:|:---:|
-| ![Currents](informe/media/campo_corrientes.png) | ![Battery](informe/media/bateria.png) |
+| ![Corrientes](informe/media/campo_corrientes.png) | ![Batería](informe/media/bateria.png) |
 
 ---
 
-## How it works
+## ¿Cómo funciona?
 
-### 1. Ocean data as a graph
+### 1. Datos oceánicos como grafo
 
-The ocean is discretized into a 3D grid (lat × lon × depth). Each navigable
-cell is a **node**. Each cell connects to its **26 neighbors** (3D Moore
-neighborhood) via directed edges.
+El océano se discretiza en una grilla 3D (lat × lon × profundidad). Cada
+celda navegable es un **nodo**. Cada celda se conecta con sus **26 vecinos**
+(vecindario de Moore 3D) mediante aristas dirigidas.
 
-The weight of each edge is the **net energy** to traverse it:
+El peso de cada arista es la **energía neta** para recorrerla:
 
 ```
-E_net = E_drag − E_regen + E_gravity
+E_neta = E_arr − E_regen + E_grav
 
-where:
-  E_drag    = k_p · ‖v_r‖³ · Δt       (NASA drag equation)
-  E_regen   = k_r · η · ‖v_c‖³ · Δt   (turbine regeneration)
-  E_gravity = m · g · |Δz| / η          (vertical movement)
-  v_r       = s·ê − v_c                 (velocity relative to water)
+donde:
+  E_arr    = k_p · ‖v_r‖³ · Δt       (ecuación de arrastre NASA)
+  E_regen  = k_r · η · ‖v_c‖³ · Δt   (regeneración turbina)
+  E_grav   = m · g · |Δz| / η          (movimiento vertical)
+  v_r      = s·ê − v_c                 (velocidad relativa al agua)
 ```
 
-When the current pushes the AUV forward, `E_regen > E_drag` → **negative
-weight**. This is where Bellman-Ford beats Dijkstra.
+Cuando la corriente empuja al AUV hacia adelante, `E_regen > E_arr` → **peso
+negativo**. Ahí es donde Bellman-Ford le gana a Dijkstra.
 
-### 2. Mission zone selection
+### 2. Selección de zonas de misión
 
-Zones aren't picked manually. They're derived from the **horizontal divergence**
-of the current field:
+Las zonas no se eligen a mano. Se derivan de la **divergencia horizontal**
+del campo de corrientes:
 
 ```
 div = ∂uo/∂x + ∂vo/∂y
 ```
 
-Where `div < 0`, flow converges — pollutants accumulate there. The top-k
-convergence cells become **waypoints**. Additional **sentinel cells** are placed
-offshore for early spill detection.
+Donde `div < 0`, el flujo converge — los contaminantes se acumulan ahí.
+Las celdas de mayor convergencia se vuelven **waypoints**. Se agregan
+**celdas centinela** offshore para detección temprana de derrames.
 
-### 3. Optimal route (Bellman-Ford + ATSP)
+### 3. Ruta óptima (Bellman-Ford + ATSP)
 
-- **Bellman-Ford** finds the minimum-energy path between every pair of zones
-  (handles negative weights from regeneration).
-- The resulting cost matrix feeds an **Asymmetric Traveling Salesman Problem**
-  solver (exact enumeration) to find the optimal visit order.
-- A negative cycle detector validates the model before solving.
-
----
-
-## Features
-
-- **Interactive 6-phase workflow**: Data → Currents → Zones → Graph → ATSP → Mission
-- **6 AUV presets**: REMUS 100, REMUS 600, REMUS 620, Bluefin-9, Generic, Test
-- **8 Peruvian port bases** pre-configured + custom base support
-- **Custom NetCDF upload** with automatic CMEMS variable detection
-- **Real-time parameter tuning**: speed, efficiency, drag coefficients, battery
-- **Algorithm comparison**: Bellman-Ford vs Dijkstra/A* (shows regeneration advantage)
-- **3D interactive visualization** with Plotly (graph edges colored by energy sign)
-- **Export**: CSV, PNG, JSON route data
-- **Dark maritime theme** with industrial UI design
+- **Bellman-Ford** encuentra el camino de mínima energía entre cada par de
+  zonas (maneja pesos negativos por regeneración).
+- La matriz de costos resultante alimenta un solver de **Problema del
+  Viajante Asimétrico** (enumeración exacta) para encontrar el orden de
+  visita óptimo.
+- Un detector de ciclos negativos valida el modelo antes de resolver.
 
 ---
 
-## Architecture
+## Características
+
+- **Flujo de trabajo interactivo de 6 fases**: Datos → Corrientes → Zonas → Grafo → ATSP → Misión
+- **6 presets de AUV**: REMUS 100, REMUS 600, REMUS 620, Bluefin-9, Genérico, Prueba
+- **8 bases portuarias peruanas** preconfiguradas + bases personalizadas
+- **Carga de NetCDF personalizada** con detección automática de variables CMEMS
+- **Ajuste de parámetros en tiempo real**: velocidad, eficiencia, coeficientes, batería
+- **Comparativa de algoritmos**: Bellman-Ford vs Dijkstra/A* (muestra ventaja de regeneración)
+- **Visualización 3D interactiva** con Plotly (aristas coloreadas por signo de energía)
+- **Exportación**: CSV, PNG, JSON de la ruta
+- **Tema marino oscuro** con diseño industrial
+
+---
+
+## Arquitectura
 
 ```
 rutas-auv/
-├── src/                        # Core (zero Streamlit dependency)
-│   ├── config.py               # ParametrosModelo — frozen dataclass
-│   ├── datos.py                # NetCDF loader + CMEMS alias resolution
-│   ├── grafo.py                # Directed graph + energy cost function
-│   ├── zonas.py                # Divergence, waypoint & sentinel selection
-│   ├── algoritmos.py           # Bellman-Ford, cost matrix, ATSP solver
-│   ├── metricas.py             # Battery simulation + CSV export
-│   └── visualizacion.py        # Matplotlib + Plotly plots (framework-agnostic)
-├── app.py                      # Streamlit UI (presentation layer)
-├── data/                       # NetCDF datasets (CMEMS)
-├── tests/                      # 42 unit tests
-├── informe/                    # Technical report (Typst → PDF)
-└── assets/                     # Drone images
+├── src/                        # Núcleo (cero dependencia de Streamlit)
+│   ├── config.py               # ParametrosModelo — dataclass inmutable
+│   ├── datos.py                # Cargador NetCDF + resolución de alias CMEMS
+│   ├── grafo.py                # Grafo dirigido + función de costo energético
+│   ├── zonas.py                # Divergencia, selección de waypoints y centinelas
+│   ├── algoritmos.py           # Bellman-Ford, matriz de costos, solver ATSP
+│   ├── metricas.py             # Simulación de batería + exportación CSV
+│   └── visualizacion.py        # Gráficos Matplotlib + Plotly (framework-agnostic)
+├── app.py                      # Interfaz Streamlit (capa de presentación)
+├── data/                       # Datasets NetCDF (CMEMS)
+├── tests/                      # 42 pruebas unitarias
+├── informe/                    # Informe técnico (Typst → PDF)
+└── assets/                     # Imágenes de drones
 ```
 
-**Dependency rule**: `src/` never imports from `app.py`. The core is
-framework-agnostic — the UI could be swapped for Flask, FastAPI, or a CLI
-without touching the algorithms.
+**Regla de dependencias**: `src/` nunca importa de `app.py`. El núcleo es
+framework-agnostic — la UI puede cambiarse por Flask, FastAPI o una CLI
+sin tocar los algoritmos.
 
 ---
 
-## Tech stack
+## Stack tecnológico
 
-| Layer | Technology |
+| Capa | Tecnología |
 |---|---|
-| Algorithms | Python, NumPy, itertools |
-| Data | xarray, NetCDF4 (Copernicus Marine CMEMS) |
-| Visualization | Matplotlib (2D), Plotly (3D interactive) |
+| Algoritmos | Python, NumPy, itertools |
+| Datos | xarray, NetCDF4 (Copernicus Marine CMEMS) |
+| Visualización | Matplotlib (2D), Plotly (3D interactivo) |
 | UI | Streamlit ≥ 1.45 |
 | Testing | pytest |
-| Report | Typst |
+| Informe | Typst |
 
 ---
 
-## Quick start
+## Inicio rápido
 
 ```bash
-# Clone
+# Clonar
 git clone https://github.com/axismf/auv-optimization.git
 cd rutas-auv
 
-# Install
+# Instalar
 pip install -r requirements.txt
 
-# Run
+# Ejecutar
 streamlit run app.py
 
-# Test
+# Tests
 pytest
 ```
 
-The app loads a sample dataset (`data/Lima-New.nc`) automatically.
-You can also upload your own NetCDF from Copernicus Marine.
+La app carga un dataset de ejemplo (`data/Lima-New.nc`) automáticamente.
+También podés subir tu propio NetCDF de Copernicus Marine.
 
 ---
 
@@ -175,28 +179,28 @@ $ pytest
 42 passed in 1.36s
 ```
 
-Tests cover: Bellman-Ford correctness, negative cycle detection, ATSP
-optimality, graph construction, cost function, waypoint selection, battery
-simulation, and metric computation.
+Los tests cubren: corrección de Bellman-Ford, detección de ciclos negativos,
+optimalidad del ATSP, construcción del grafo, función de costo, selección de
+waypoints, simulación de batería y cálculo de métricas.
 
 ---
 
-## Background
+## Contexto
 
-This project was developed as part of an undergraduate thesis on AUV mission
-planning for environmental monitoring along the Peruvian coast. The energy
-model is based on:
+Este proyecto fue desarrollado como parte de una tesis de pregrado sobre
+planificación de misiones de AUV para monitoreo ambiental a lo largo de la
+costa peruana. El modelo energético se basa en:
 
-- **NASA Drag Equation** for hydrodynamic resistance
-- **Turbine regeneration** model (Sun et al., 2022)
-- **Horizontal divergence** for pollution convergence detection
-- **Bellman-Ford** for shortest paths with negative weights
-- **Exact ATSP enumeration** for optimal visit sequencing
+- **Ecuación de Arrastre NASA** para resistencia hidrodinámica
+- Modelo de **regeneración turbina** (Sun et al., 2022)
+- **Divergencia horizontal** para detección de convergencia de contaminantes
+- **Bellman-Ford** para caminos mínimos con pesos negativos
+- **Enumeración exacta ATSP** para secuenciación óptima de visita
 
 ---
 
 <div align="center">
 
-**Built with Python** 🐍
+**Hecho con Python** 🐍
 
 </div>
