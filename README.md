@@ -10,7 +10,7 @@ usando datos de corrientes marinas, Bellman-Ford y TSP asimétrico.**
 [![Tests](https://img.shields.io/badge/tests-42%20passing-brightgreen?style=flat-square)](#testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[**Demo en vivo**](https://auv-rutas.streamlit.app/) · [**Informe técnico**](informe/main.pdf)
+[**Demo en vivo**](https://auv-optimization.streamlit.app/) · [**Informe técnico**](informe/main.pdf)
 
 English · [**English README**](README_EN.md)
 
